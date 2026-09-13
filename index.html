@@ -2564,16 +2564,6 @@ button *,
 
 
 
-<script id="dlimans-final-recent-wallpaper">
-(function(){
-  function fix(){
-    try{if(typeof applyBranding==='function'&&typeof state!=='undefined')applyBranding()}catch(e){}
-    try{if(typeof renderPOSRecentTransactions==='function')renderPOSRecentTransactions()}catch(e){}
-  }
-  window.addEventListener('load',function(){setTimeout(fix,150)});
-  document.addEventListener('visibilitychange',function(){if(!document.hidden)setTimeout(fix,60)});
-})();
-</script>
 
 </body></html>`);
  win.document.close()
@@ -4651,6 +4641,17 @@ button{min-height:38px}
   window.addEventListener('orientationchange',function(){setTimeout(normalizeDrawer,100)},{passive:true});
   window.addEventListener('load',function(){setTimeout(function(){syncVisualState();normalizeDrawer()},80)});
   document.addEventListener('visibilitychange',function(){if(!document.hidden)setTimeout(syncVisualState,30)});
+})();
+</script>
+
+<script id="dlimans-final-recent-wallpaper">
+(function(){
+  function fix(){
+    try{if(typeof applyBranding==='function'&&typeof state!=='undefined')applyBranding()}catch(e){}
+    try{if(typeof renderPOSRecentTransactions==='function')renderPOSRecentTransactions()}catch(e){}
+  }
+  window.addEventListener('load',function(){setTimeout(fix,150)});
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)setTimeout(fix,60)});
 })();
 </script>
 
