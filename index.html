@@ -685,6 +685,25 @@ html[data-dlimans-light="1"][data-dlimans-transparent="1"] .topbar{background:rg
   .login-box{box-shadow:0 8px 24px #0006!important;}
 }
 </style>
+
+<style id="dlimans-recent-wallpaper-fix">
+.pos-recent-transactions-card{overflow:hidden}
+.pos-recent-transactions-card.pos-recent-collapsed #posRecentTransactionsWrap{display:none!important}
+.pos-recent-transactions-card.pos-recent-collapsed{padding-bottom:10px}
+body.has-wallpaper{position:relative}
+body.has-wallpaper::before{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:var(--dlimans-wallpaper);
+  background-size:cover;background-position:center;background-repeat:no-repeat;
+  background-attachment:fixed;
+}
+body.has-wallpaper::after{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:linear-gradient(#07111f55,#07111f55);
+}
+body.has-wallpaper #app{position:relative;z-index:1}
+</style>
+
 </head>
 <body>
 
@@ -812,9 +831,14 @@ html[data-dlimans-light="1"][data-dlimans-transparent="1"] .topbar{background:rg
                 <h3>🧾 Recent Transactions</h3>
                 <div class="small">Latest completed sales</div>
               </div>
-              <button class="btn sm" type="button" onclick="showView('sales')">View All</button>
+              <div class="row" style="gap:6px">
+                <button id="posRecentToggle" class="btn sm" type="button" onclick="togglePOSRecentTransactions()" aria-expanded="true">⌃ Collapse</button>
+                <button class="btn sm" type="button" onclick="showView('sales')">View All</button>
+              </div>
             </div>
-            <div id="posRecentTransactions" class="pos-recent-transactions"></div>
+            <div id="posRecentTransactionsWrap">
+              <div id="posRecentTransactions" class="pos-recent-transactions"></div>
+            </div>
           </div>
           <div class="card cart">
             <div class="section-title"><h3>Current Cart</h3><button class="btn sm danger" onclick="clearCart()">Clear</button></div>
@@ -1189,7 +1213,7 @@ const defaultState={
  settings:{
   business:'Dlimans Supermarket',phone:'08063756515',address:'Nigeria',currency:'₦',
   thanks:'Thank you for shopping with Dlimans Supermarket!',businessLogo:'',invoiceLogo:'',wallpaper:'',theme:'darkblue',blink:true,blinkSidebar:true,noisy:false,
-  paper:'58mm',autoPrint:false,
+  paper:'58mm',autoPrint:false,posRecentCollapsed:false,
   invoice:{prefix:'INV-',nextNumber:1,title:'INVOICE',footer:'Thank you for shopping with Dlimans Supermarket!',showCustomerNote:true,showDue:true,showPaid:true,showLogo:false}
  },
  users:[
@@ -2242,7 +2266,18 @@ function renderBrandingPreviews(){
  show('businessLogoPreview',state.settings.businessLogo,'business-brand-logo');show('invoiceLogoPreview',state.settings.invoiceLogo);const w=document.getElementById('wallpaperPreview');if(w){w.style.backgroundImage=state.settings.wallpaper?`url("${state.settings.wallpaper}")`:'none';w.innerHTML=state.settings.wallpaper?'':'<span class="small">No wallpaper selected</span>'}
 }
 function applyBranding(){
- const body=document.body; if(state.settings.wallpaper){body.classList.add('has-wallpaper');body.style.backgroundImage=`linear-gradient(#07111f99,#07111f99),url("${state.settings.wallpaper}")`;body.style.backgroundSize='cover';body.style.backgroundPosition='center';body.style.backgroundAttachment='fixed'}else{body.classList.remove('has-wallpaper');body.style.backgroundImage='';body.style.backgroundSize='';body.style.backgroundPosition='';body.style.backgroundAttachment=''}
+ const body=document.body;
+ const wp=state?.settings?.wallpaper||'';
+ if(wp){
+   body.classList.add('has-wallpaper');
+   try{document.documentElement.style.setProperty('--dlimans-wallpaper','url("'+String(wp).replace(/"/g,'\\\"')+'")')}catch(e){}
+   body.style.backgroundImage='none';
+   body.style.backgroundSize='cover';body.style.backgroundPosition='center';body.style.backgroundAttachment='fixed';
+ }else{
+   body.classList.remove('has-wallpaper');
+   try{document.documentElement.style.removeProperty('--dlimans-wallpaper')}catch(e){}
+   body.style.backgroundImage='';body.style.backgroundSize='';body.style.backgroundPosition='';body.style.backgroundAttachment='';
+ }
  const logo=state.settings.businessLogo;const login=document.getElementById('loginLogo');if(login){login.innerHTML=logo?`<img src="${logo}" alt="Business logo" style="width:100%;height:100%;object-fit:contain;border-radius:inherit">`:(state.settings.business||'D').trim().charAt(0).toUpperCase()}
  const top=document.getElementById('topBusiness');if(top){top.innerHTML=(logo?`<img class="business-brand-logo" src="${logo}" alt="">`:'')+escapeHTML(state.settings.business)}
 }
@@ -2365,15 +2400,23 @@ function loadControl(){
  check('invShowNote',inv.showCustomerNote);check('invShowDue',inv.showDue);check('invShowPaid',inv.showPaid);check('invShowLogo',inv.showLogo);
  set('paperSize',['58mm','80mm','A4'].includes(state.settings.paper)?state.settings.paper:'58mm');check('autoPrint',state.settings.autoPrint);check('blinkTheme',state.settings.blink);check('blinkSidebar',state.settings.blinkSidebar);
 }
+function togglePOSRecentTransactions(force){
+  const card=document.querySelector('.pos-recent-transactions-card');
+  const btn=document.getElementById('posRecentToggle');
+  if(!card)return;
+  const collapsed=typeof force==='boolean'?force:!card.classList.contains('pos-recent-collapsed');
+  card.classList.toggle('pos-recent-collapsed',collapsed);
+  if(btn){
+    btn.textContent=collapsed?'⌄ Expand':'⌃ Collapse';
+    btn.setAttribute('aria-expanded',collapsed?'false':'true');
+  }
+  try{if(state?.settings){state.settings.posRecentCollapsed=collapsed;save()}}catch(e){}
+}
 function renderPOSRecentTransactions(){
   const box=document.getElementById('posRecentTransactions');
   if(!box)return;
   const arr=Array.isArray(state.sales)?state.sales.slice().reverse().slice(0,8):[];
-  if(!arr.length){
-    box.innerHTML='<div class="pos-recent-empty">🧾 No transactions yet.<br>Completed sales will appear here.</div>';
-    return;
-  }
-  box.innerHTML=arr.map(s=>{
+  box.innerHTML=arr.length?arr.map(s=>{
     const customer=escapeHTML(s.customer||'Walk-in');
     const invoice=escapeHTML(s.invoice||'Sale');
     const payment=escapeHTML(s.payment||'Cash');
@@ -2383,12 +2426,19 @@ function renderPOSRecentTransactions(){
         <div class="pos-recent-invoice">${invoice}</div>
         <div class="pos-recent-meta">${customer} · ${date}</div>
       </div>
-      <div class="pos-recent-amount">
-        <strong>${money(s.total)}</strong>
-        <span>${payment}</span>
-      </div>
+      <div class="pos-recent-amount"><strong>${money(s.total)}</strong><span>${payment}</span></div>
     </div>`;
-  }).join('');
+  }).join(''):'<div class="pos-recent-empty">🧾 No transactions yet.<br>Completed sales will appear here.</div>';
+  const card=document.querySelector('.pos-recent-transactions-card');
+  if(card){
+    const collapsed=!!state?.settings?.posRecentCollapsed;
+    card.classList.toggle('pos-recent-collapsed',collapsed);
+    const btn=document.getElementById('posRecentToggle');
+    if(btn){
+      btn.textContent=collapsed?'⌄ Expand':'⌃ Collapse';
+      btn.setAttribute('aria-expanded',collapsed?'false':'true');
+    }
+  }
 }
 
 function renderDashboard(){
@@ -2512,6 +2562,18 @@ button *,
  <div class="line"></div><div class="thanks">${escapeHTML(inv.footer||state.settings.thanks)}</div>
  
 
+
+
+<script id="dlimans-final-recent-wallpaper">
+(function(){
+  function fix(){
+    try{if(typeof applyBranding==='function'&&typeof state!=='undefined')applyBranding()}catch(e){}
+    try{if(typeof renderPOSRecentTransactions==='function')renderPOSRecentTransactions()}catch(e){}
+  }
+  window.addEventListener('load',function(){setTimeout(fix,150)});
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)setTimeout(fix,60)});
+})();
+</script>
 
 </body></html>`);
  win.document.close()
@@ -3764,7 +3826,7 @@ window.addEventListener('beforeunload',()=>{try{stopDlimansChatPresence();clearD
     `;document.head.appendChild(st);
     const p=document.createElement('div');p.id='dcuPanel';p.innerHTML=`<div class="dcu-box">
       <aside class="dcu-side"><div class="dcu-head"><strong>Admin / Cashier</strong><button class="dcu-btn" onclick="dcuClose()">✕</button></div><input id="dcuSearch" placeholder="Search staff" style="margin:9px 0"><div id="dcuUsers" class="dcu-users"></div></aside>
-      <section class="dcu-chat"><div class="dcu-head"><div id="dcuAvatar" class="dcu-pill">?</div><strong id="dcuPartner">Select staff</strong><select id="dcuStaffSelect" aria-label="Select Admin or Cashier" onchange="dcuSelectFromMobile(this.value)"><option value="">Staff…</option></select><span id="dcuStatus" class="dcu-pill">Ready</span><button class="dcu-btn" onclick="dcuCall('voice')">📞</button><button class="dcu-btn primary" onclick="dcuCall('video')">📹</button><button class="dcu-btn" onclick="dcuMute()">🎙️</button><button class="dcu-btn" onclick="dcuCamera()">📷</button><button class="dcu-btn danger" onclick="dcuHangup()">End</button></div><div id="dcuMsgs" class="dcu-msgs"><div class="dcu-warn">Select an Admin or Cashier.</div></div><div class="dcu-compose"><textarea id="dcuInput" placeholder="Write a message..." onkeydown="dcuKey(event)"></textarea><button class="dcu-btn primary" onclick="dcuSend()">Send</button></div></section>
+      <section class="dcu-chat"><div class="dcu-head"><div id="dcuAvatar" class="dcu-pill">?</div><strong id="dcuPartner">Select staff</strong><select id="dcuStaffSelect" aria-label="Select Admin or Cashier" onchange="dcuSelectFromMobile(this.value)"><option value="">Staff…</option></select><span id="dcuStatus" class="dcu-pill">Ready</span><button class="dcu-btn" onclick="dcuCall('voice')">📞</button><button class="dcu-btn primary" onclick="dcuCall('video')">📹</button><button class="dcu-btn" onclick="dcuMute()">🎙️</button><button class="dcu-btn" onclick="dcuCamera()">📷</button><button class="dcu-btn danger" onclick="dcuHangup()">End</button></div><div id="dcuMsgs" class="dcu-msgs"><div class="dcu-warn">Select an Admin or Cashier.</div></div><div class="dcu-compose"><textarea id="dcuInput" placeholder="Write a message..." onkeydown="dcuKey(event)"></textarea><button id="dcuSendBtn" class="dcu-btn primary" type="button" onclick="dcuSend()">Send</button></div></section>
       <aside class="dcu-right"><div class="dcu-head"><strong>Current Call</strong></div><div class="dcu-videos"><video id="dcuRemote" autoplay playsinline></video><div class="dcu-local"><video id="dcuLocal" autoplay muted playsinline></video></div></div><div style="display:flex;gap:6px;margin-top:8px"><button class="dcu-btn" onclick="dcuMute()">🎙️</button><button class="dcu-btn" onclick="dcuCamera()">📷</button><button class="dcu-btn danger" onclick="dcuHangup()">End</button></div><p id="dcuCallStatus" class="dcu-warn">No active call.</p></aside>
     </div>`;document.body.appendChild(p);
   }
@@ -3899,6 +3961,7 @@ window.addEventListener('beforeunload',()=>{try{stopDlimansChatPresence();clearD
 
   async function send(){
     const input=$('dcuInput');
+    const sendBtn=$('dcuSendBtn');
     const text=(input?.value||'').trim();
     if(!text||!currentPartner)return;
     const r=root();
@@ -3914,6 +3977,7 @@ window.addEventListener('beforeunload',()=>{try{stopDlimansChatPresence();clearD
     dcuPendingMessages.push(optimistic);
     dcuRenderMessages([]);
     input.value='';input.focus();
+    if(sendBtn){sendBtn.disabled=true;sendBtn.textContent='Sending…';}
 
     try{
       await r.collection('chatMessages').add({
@@ -3930,7 +3994,9 @@ window.addEventListener('beforeunload',()=>{try{stopDlimansChatPresence();clearD
         deliveredAt:now(),
         readAt:null
       });
+      if(sendBtn){sendBtn.disabled=false;sendBtn.textContent='Send';}
     }catch(e){
+      if(sendBtn){sendBtn.disabled=false;sendBtn.textContent='Send';}
       dcuPendingMessages=dcuPendingMessages.filter(m=>m.clientId!==clientId);
       dcuRenderMessages([]);
       toastMsg('Chat failed: '+(e.message||e));
